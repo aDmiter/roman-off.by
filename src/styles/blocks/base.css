@@ -1,0 +1,88 @@
+/* BEM base: variables + resets + shared typography */
+
+:root {
+  --bg: #0a0a0a;
+  --bg-soft: #111111;
+  --card: #1a1a1a;
+  --card-lighter: #222222;
+  --gold: #d4af37;
+  --gold-dark: #b8860b;
+  --gold-light: #f0d97a;
+  --main: #ffffff;
+  --sub: #b0b0b0;
+  --font-display: 'Oswald', system-ui, sans-serif;
+  --font-body: 'Roboto', system-ui, sans-serif;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--main);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(212, 175, 55, 0.35);
+  color: #fff;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0a0a0a; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold-dark); }
+
+/* Site shell */
+.site {
+  background-color: var(--bg);
+  color: var(--main);
+}
+
+/* Section container + header */
+.section {
+  position: relative;
+  scroll-margin-top: 4rem;
+}
+.section__inner {
+  margin: 0 auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+.section__rader {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+}
+.section__title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.section__line {
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold-dark) 50%, transparent 100%);
+  opacity: 0.6;
+}
+
+.pattern {
+  background-image:
+    linear-gradient(rgba(212, 175, 55, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212, 175, 55, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.radial-gold {
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(212, 175, 55, 0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 90%, rgba(184, 134, 11, 0.14) 0%, transparent 50%);
+}
+
+@media (min-width: 640px) {
+  .section__inner { padding-left: 1.5rem; padding-right: 1.5rem; }
+}
+@media (min-width: 1024px) {
+  .section__inner { padding-left: 2rem; padding-right: 2rem; max-width: 80rem; }
+}

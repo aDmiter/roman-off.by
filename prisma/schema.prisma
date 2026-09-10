@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  STAFF
+}
+
+enum MembershipStatus {
+  ACTIVE
+  USED_UP
+  EXPIRED
+}
+
+model AdminUser {
+  id        String         @id @default(cuid())
+  name      String
+  email     String         @unique
+  phone     String
+  password  String // scrypt hash (salt:hash)
+  role      Role           @default(STAFF)
+  createdAt DateTime       @default(now())
+  sessions  AdminSession[]
+}
+
+model AdminSession {
+  id        String    @id @default(cuid())
+  user      AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+}
+
+// Weekly recurring training template (the schedule)
+model Training {
+  id        Int       @id @default(autoincrement())
+  title     String
+  groupName String
+  category  String // ДЕТИ / ПОДРОСТКИ / ВЗРОСЛЫЕ / ЖЕНСКАЯ / ОПЫТНЫЕ
+  dayOfWeek Int // 1 = Mon ... 7 = Sun
+  startTime String // "08:30"
+  endTime   String // "09:30"
+  coach     String
+  capacity  Int       @default(20)
+  color     String? // accent hex for the dashboard
+  createdAt DateTime  @default(now())
+  sessions  Session[]
+}
+
+model Coach {
+  id             Int      @id @default(autoincrement())
+  name           String // Имя и фамилия
+  specialization String
+  photo          String? // /uploads/...
+  color          String? // hex accent for calendar
+  createdAt      DateTime @default(now())
+  sessions       Session[]
+  clients        Client[]
+  visits         Visit[]
+}
+
+model Client {
+  id              Int      @id @default(autoincrement())
+  name            String
+  photo           String?
+  phone           String   @unique
+  email           String?
+  birthDate       DateTime?
+  favoriteCoach   Coach?   @relation(fields: [favoriteCoachId], references: [id], onDelete: SetNull)
+  favoriteCoachId Int?
+  createdAt       DateTime @default(now())
+  visits          Visit[]
+  memberships     Membership[]
+}
+
+model Visit {
+  id        Int      @id @default(autoincrement())
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId  Int
+  session   Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  sessionId Int?
+  coach     Coach?   @relation(fields: [coachId], references: [id], onDelete: SetNull)
+  coachId   Int?
+  visitedAt DateTime @default(now())
+  note      String?
+}
+
+// A single bookable slot on a concrete date
+model Session {
+  id          Int       @id @default(autoincrement())
+  training    Training? @relation(fields: [trainingId], references: [id], onDelete: SetNull)
+  trainingId  Int?
+  coach       Coach?    @relation(fields: [coachId], references: [id], onDelete: SetNull)
+  coachId     Int?
+  date        DateTime // start of the day
+  startTime   String // "08:30"
+  endTime     String // "09:30"
+  title       String
+  coachName   String    @default("") // denormalized name for display
+  capacity    Int       @default(20)
+  bookedCount Int       @default(0)
+  busy        Boolean   @default(false) // slot is blocked / marked busy
+  note        String?
+  createdAt   DateTime  @default(now())
+  bookings    Booking[]
+  visits      Visit[]
+}
+
+model Booking {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  age       String?
+  goal      String?
+  time      String?
+  session   Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  sessionId Int?
+  memberId  String? // optional membership code binding
+  createdAt DateTime @default(now())
+}
+
+model Membership {
+  id            Int               @id @default(autoincrement())
+  code          String            @unique
+  client        Client?           @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId      Int?
+  holderName    String
+  phone         String
+  totalSessions Int               @default(4)
+  usedSessions  Int               @default(0)
+  status        MembershipStatus  @default(ACTIVE)
+  createdAt     DateTime          @default(now())
+  expiresAt     DateTime?
+  usages        MembershipUsage[]
+}
+
+model MembershipUsage {
+  id           Int        @id @default(autoincrement())
+  membership   Membership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  membershipId Int
+  usedAt       DateTime   @default(now())
+  sessionId    Int?
+  note         String?
+}
+
+// Settings: lesson types (название занятия + продолжительность)
+model LessonType {
+  id              Int      @id @default(autoincrement())
+  name            String
+  durationMinutes Int
+  createdAt       DateTime @default(now())
+}
+
+// Settings: working hours (время работы по дням недели)
+model WorkingHours {
+  id        Int      @id @default(autoincrement())
+  dayOfWeek Int      @unique // 1 = Пн ... 7 = Вс
+  openTime  String // "08:00"
+  closeTime String // "22:00"
+  updatedAt DateTime @updatedAt
+}
