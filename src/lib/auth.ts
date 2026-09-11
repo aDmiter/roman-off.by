@@ -35,6 +35,10 @@ export async function getCurrentUser() {
     await prisma.adminSession.delete({ where: { id: session.id } }).catch(() => {});
     return null;
   }
+  if (!session.user.active) {
+    await prisma.adminSession.deleteMany({ where: { userId: session.userId } }).catch(() => {});
+    return null;
+  }
   return session.user;
 }
 

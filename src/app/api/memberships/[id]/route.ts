@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requirePermission } from '@/lib/permissions';
 
 type Params = { params: { id: string } };
 
 export async function DELETE(_req: Request, { params }: Params) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('memberships');
+  if ('response' in auth) return auth.response;
   const id = Number(params.id);
   await prisma.membership.delete({ where: { id } }).catch(() => {});
   return NextResponse.json({ ok: true });

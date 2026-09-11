@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAuth, requirePermission } from '@/lib/permissions';
 
 const schema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -17,6 +17,9 @@ const schema = z.object({
 });
 
 export async function GET(req: Request) {
+  const auth = await requireAuth();
+  if ('response' in auth) return auth.response;
+
   const url = new URL(req.url);
   const from = url.searchParams.get('from');
   const to = url.searchParams.get('to');
@@ -35,8 +38,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('calendar');
+  if ('response' in auth) return auth.response;
 
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {

@@ -31,6 +31,9 @@ export async function POST(req: Request) {
   if (!user || !verifyPassword(password, user.password)) {
     return NextResponse.json({ error: 'Неверный email или пароль' }, { status: 401 });
   }
+  if (!user.active) {
+    return NextResponse.json({ error: 'Аккаунт отключён. Обратитесь к администратору.' }, { status: 403 });
+  }
 
   const token = await createSession(user.id);
   const isHttps = new URL(req.url).protocol === 'https:';

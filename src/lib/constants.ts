@@ -37,3 +37,21 @@ export const COACH_COLORS = [
 ];
 
 export const DEFAULT_TOTAL_SESSIONS = 4;
+
+// Каталог разделов админки = единицы прав (RBAC).
+export const ADMIN_SECTIONS = [
+  { key: 'dashboard', label: 'Обзор', href: '/admin', icon: '◈' },
+  { key: 'coaches', label: 'Тренеры', href: '/admin/coaches', icon: '◉' },
+  { key: 'clients', label: 'Клиенты', href: '/admin/clients', icon: '▣' },
+  { key: 'calendar', label: 'Календарь', href: '/admin/calendar', icon: '▦' },
+  { key: 'schedule', label: 'Расписание', href: '/admin/schedule', icon: '▤' },
+  { key: 'bookings', label: 'Заявки', href: '/admin/bookings', icon: '✉' },
+  { key: 'memberships', label: 'Абонементы', href: '/admin/memberships', icon: '☰' },
+  { key: 'scan', label: 'Сканировать', href: '/admin/scan', icon: '▤' },
+  { key: 'settings', label: 'Настройки', href: '/admin/settings', icon: '⚙' },
+  { key: 'users', label: 'Пользователи', href: '/admin/users', icon: '👤' }
+] as const;
+
+export type PermissionKey = (typeof ADMIN_SECTIONS)[number]['key'];
+
+export const ALL_PERMISSION_KEYS: PermissionKey[] = ADMIN_SECTIONS.map((s) => s.key);

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAuth, requirePermission } from '@/lib/permissions';
 
 const timeRe = /^\d{2}:\d{2}$/;
 
@@ -18,13 +18,16 @@ const putSchema = z.object({
 });
 
 export async function GET() {
+  const auth = await requireAuth();
+  if ('response' in auth) return auth.response;
+
   const hours = await prisma.workingHours.findMany({ orderBy: { dayOfWeek: 'asc' } });
   return NextResponse.json(hours);
 }
 
 export async function PUT(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('settings');
+  if ('response' in auth) return auth.response;
 
   const parsed = putSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {

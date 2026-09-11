@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requirePermission, requireAnyPermission } from '@/lib/permissions';
 
 const schema = z.object({
   name: z.string().min(2).optional(),
@@ -15,8 +15,8 @@ const schema = z.object({
 type Params = { params: { id: string } };
 
 export async function GET(_req: Request, { params }: Params) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requireAnyPermission(['clients', 'memberships']);
+  if ('response' in auth) return auth.response;
 
   const id = Number(params.id);
   const client = await prisma.client
@@ -40,8 +40,8 @@ export async function GET(_req: Request, { params }: Params) {
 }
 
 export async function PATCH(req: Request, { params }: Params) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('clients');
+  if ('response' in auth) return auth.response;
 
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {
@@ -67,8 +67,8 @@ export async function PATCH(req: Request, { params }: Params) {
 }
 
 export async function DELETE(_req: Request, { params }: Params) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('clients');
+  if ('response' in auth) return auth.response;
   const id = Number(params.id);
   await prisma.client.delete({ where: { id } }).catch(() => {});
   return NextResponse.json({ ok: true });

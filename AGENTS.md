@@ -36,15 +36,19 @@ src/app/                 — App Router: страницы и API-роуты
     memberships/         — Абонементы (генерация + штрихкод)
     scan/                — Сканирование абонемента
     settings/            — Настройки (Занятия, Время работы)
-  api/                   — REST: auth, admin, coaches, clients, sessions, trainings, bookings, memberships, lesson-types, working-hours, upload, files
+    users/               — Пользователи и права (RBAC)
+  api/                   — REST: auth, admin (me/users), coaches, clients, sessions, trainings, bookings, memberships, lesson-types, working-hours, upload, files
 src/components/landing/  — секции лендинга (Header, Hero, Trainer, Directions, Schedule, Advantages, Pricing, Project, Contacts, Footer)
 src/components/admin/    — Sidebar
-src/lib/                 — prisma.ts, auth.ts, api.ts, constants.ts, utils.ts, barcode.ts
+src/lib/                 — prisma.ts, auth.ts, api.ts, constants.ts, utils.ts, barcode.ts, permissions.ts
+src/middleware.ts        — прокидывает x-pathname для guard'а /admin/*
 src/styles/blocks/       — BEM-блоки (не подключены)
 src/generated/prisma/    — Prisma Client (генерируется, в .gitignore)
+server.js                — стартовый сервер для хостинга (Beget)
 prisma/schema.prisma     — схема БД
 prisma/seed.ts           — сид
 public/uploads/          — медиа: брендовые (logo/favicon/hero/photo — в git) + загрузки (в .gitignore)
+DEPLOY.md                — инструкция по деплою на Beget
 ```
 
 ---
@@ -67,9 +71,10 @@ npm run db:studio      # prisma studio
 
 ## Данные (модели Prisma)
 
-`AdminUser`, `AdminSession`, `Coach`, `Client`, `Visit`, `Training`, `Session`, `Booking`, `Membership`, `MembershipUsage`, `LessonType`, `WorkingHours`.
+`AdminUser`, `AdminSession`, `AdminUserPermission`, `Coach`, `Client`, `Visit`, `Training`, `Session`, `Booking`, `Membership`, `MembershipUsage`, `LessonType`, `WorkingHours`.
 
-- **AdminUser:** вход по `email` + `password` (хэш scrypt, `salt:hash`), роль `SUPERADMIN|STAFF`. Суперадмин: `Centrfightbrest@gmail.com` (пароль — в `.env` `ADMIN_PASSWORD`).
+- **AdminUser:** вход по `email` + `password` (хэш scrypt, `salt:hash`), роль `SUPERADMIN|STAFF`, флаг `active`. Суперадмин: `Centrfightbrest@gmail.com` (пароль — в `.env` `ADMIN_PASSWORD`).
+- **Права (RBAC):** разделы админки — единицы прав (`ADMIN_SECTIONS` в `constants.ts`). У `SUPERADMIN` доступ ко всем; у `STAFF` — выданные через `AdminUserPermission` (по строке на право). Управление — раздел «Пользователи» (только суперадмин/кто имеет право `users`).
 - **Client ↔ Coach:** `favoriteCoachId`. **Client ↔ Visit** (история посещений), **Client ↔ Membership** (история абонементов).
 - **Session:** слот на дату, `coachId`/`coachName`, `startTime`/`endTime`, `busy`, `bookedCount`.
 - **Membership:** `code` формата **`RFC-` + 10 цифр**, `totalSessions`/`usedSessions`, `status`, `clientId`.
@@ -78,7 +83,8 @@ npm run db:studio      # prisma studio
 
 ## Ключевые решения/правила
 
-- **Вход в админку** — только email+пароль. Сессия: таблица `AdminSession`, cookie `rfc_session` (httpOnly; `secure` только при https).
+- **Вход в админку** — только email+пароль. Сессия: таблица `AdminSession`, cookie `rfc_session` (httpOnly; `secure` только при https). Неактивные (`active=false`) не входят, их сессии сбрасываются.
+- **RBAC:** проверка прав — на сервере (`requirePermission`/`requireAnyPermission`/`requireAuth` в `src/lib/permissions.ts`), а не только в UI. Меню фильтруется, маршруты `/admin/*` защищены через `middleware.ts` (заголовок `x-pathname`) + guard в `admin/layout.tsx` (редирект на первый доступный раздел).
 - **Абонемент:** код `RFC-XXXXXXXXXX`; штрихкод Code128 генерируется на сервере (`bwip-js.toBuffer` — async, обязательно `await`). Сканирование — по коду, затем списание занятия (при привязке к клиенту создаётся `Visit`).
 - **Загрузка файлов:** API `/api/upload` пишет в `public/uploads`, возвращает `/api/files/<name>`; раздача — через API-роут `/api/files/[name]` (т.к. `next start` не отдаёт файлы, добавленные в `public` после сборки).
 - **Календарь:** рабочая сетка **08:00–22:00**; создание записи по шагам: тренер → занятие (из Настроек) → дата → доступные слоты (шаг 30 мин в рамках `WorkingHours` дня, свободные от пересечений) → конец = начало + `durationMinutes`.
@@ -107,18 +113,21 @@ npm run db:studio      # prisma studio
 
 ---
 
-## Деплой (шаблон: виртуальный хостинг + Passenger/Node)
+## Деплой (Beget, Node.js)
 
-После правок выдавать список изменённых файлов и команду деплоя.
+- Хостинг: **beget.com**, домен `roman-off.by`. Приложение — в `~/roman-off.by/roman-off-by` (рядом с `public_html`, который для Node не используется).
+- Стартовый файл для панели Node.js — `server.js` (кастомный сервер Next; хостинг передаёт `PORT`). Альтернатива — команда `npm run serve`.
+- Сборка — на сервере (Prisma-движок под Linux; `.next`/`node_modules` не заливать).
+- Полная пошаговая инструкция — в **`DEPLOY.md`**.
+
+Кратко (обновление):
 
 ```bash
-# без правок schema.prisma
-cd ~/путь/к/приложению && npm run build && mkdir -p tmp && touch tmp/restart.txt
-
-# если менялся schema.prisma
-cd ~/путь/к/приложению
-npx prisma generate && npx prisma db push
-npm run build && mkdir -p tmp && touch tmp/restart.txt
+cd ~/roman-off.by/roman-off-by
+git pull && npm ci && npx prisma generate
+npx prisma db push    # только если менялась prisma/schema.prisma
+npm run build
+# затем перезапустить Node-приложение в панели Beget
 ```
 
 > При переходе на Prisma-миграции: `npx prisma migrate deploy`.

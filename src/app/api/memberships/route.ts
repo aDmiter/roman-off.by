@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requirePermission } from '@/lib/permissions';
 import { generateMembershipCode } from '@/lib/utils';
 import { barcodePngDataUrl } from '@/lib/barcode';
 import { DEFAULT_TOTAL_SESSIONS } from '@/lib/constants';
@@ -30,8 +30,8 @@ function toView(m: any) {
 }
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('memberships');
+  if ('response' in auth) return auth.response;
 
   const memberships = await prisma.membership.findMany({
     orderBy: { createdAt: 'desc' },
@@ -42,8 +42,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('memberships');
+  if ('response' in auth) return auth.response;
 
   const parsed = createSchema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {

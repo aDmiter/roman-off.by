@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requirePermission } from '@/lib/permissions';
 
 const createSchema = z.object({
   name: z.string().min(2, 'Укажите имя'),
@@ -14,8 +14,8 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('bookings');
+  if ('response' in auth) return auth.response;
   const bookings = await prisma.booking.findMany({
     orderBy: { createdAt: 'desc' },
     include: { session: { select: { date: true, startTime: true, title: true } } },

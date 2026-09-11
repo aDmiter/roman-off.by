@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAuth, requirePermission } from '@/lib/permissions';
 
 const schema = z.object({
   name: z.string().min(2, 'Укажите название'),
@@ -9,13 +9,16 @@ const schema = z.object({
 });
 
 export async function GET() {
+  const auth = await requireAuth();
+  if ('response' in auth) return auth.response;
+
   const lessonTypes = await prisma.lessonType.findMany({ orderBy: { id: 'asc' } });
   return NextResponse.json(lessonTypes);
 }
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('settings');
+  if ('response' in auth) return auth.response;
 
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {

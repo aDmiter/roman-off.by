@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAnyPermission } from '@/lib/permissions';
 import { normalizeBarcode } from '@/lib/utils';
 import { barcodePngDataUrl } from '@/lib/barcode';
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requireAnyPermission(['scan', 'memberships']);
+  if ('response' in auth) return auth.response;
 
   const body = await req.json().catch(() => ({}));
   const code = normalizeBarcode(String(body?.code ?? body?.barcode ?? ''));

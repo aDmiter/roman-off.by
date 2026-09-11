@@ -4,23 +4,14 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { postJSON } from '@/lib/api';
+import { ADMIN_SECTIONS } from '@/lib/constants';
 
-const LINKS = [
-  { href: '/admin', label: 'Обзор', icon: '◈' },
-  { href: '/admin/coaches', label: 'Тренеры', icon: '◉' },
-  { href: '/admin/clients', label: 'Клиенты', icon: '▣' },
-  { href: '/admin/calendar', label: 'Календарь', icon: '▦' },
-  { href: '/admin/schedule', label: 'Расписание', icon: '▤' },
-  { href: '/admin/bookings', label: 'Заявки', icon: '✉' },
-  { href: '/admin/memberships', label: 'Абонементы', icon: '☰' },
-  { href: '/admin/scan', label: 'Сканировать', icon: '▤' },
-  { href: '/admin/settings', label: 'Настройки', icon: '⚙' }
-];
-
-export default function Sidebar({ userName }: { userName: string }) {
+export default function Sidebar({ userName, permissions }: { userName: string; permissions: string[] }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+
+  const links = ADMIN_SECTIONS.filter((s) => permissions.includes(s.key));
 
   const logout = async () => {
     await postJSON('/api/auth/logout', {}).catch(() => {});
@@ -38,7 +29,7 @@ export default function Sidebar({ userName }: { userName: string }) {
         </span>
       </div>
       <nav className="flex-1 px-3 py-4">
-        {LINKS.map((l) => {
+        {links.map((l) => {
           const isActive = pathname === l.href;
           return (
             <Link

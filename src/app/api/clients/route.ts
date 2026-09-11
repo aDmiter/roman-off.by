@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
-import { getCurrentUser } from '@/lib/auth';
+import { requirePermission, requireAnyPermission } from '@/lib/permissions';
 
 const schema = z.object({
   name: z.string().min(2, 'Укажите имя и фамилию'),
@@ -13,6 +13,9 @@ const schema = z.object({
 });
 
 export async function GET() {
+  const auth = await requireAnyPermission(['clients', 'memberships']);
+  if ('response' in auth) return auth.response;
+
   const clients = await prisma.client.findMany({
     orderBy: { createdAt: 'desc' },
     include: { favoriteCoach: { select: { id: true, name: true, color: true } }, _count: { select: { visits: true, memberships: true } } },
@@ -22,8 +25,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requirePermission('clients');
+  if ('response' in auth) return auth.response;
 
   const parsed = schema.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) {

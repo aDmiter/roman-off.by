@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAuth } from '@/lib/permissions';
 
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_SIZE = 5 * 1024 * 1024;
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
-  if (!user) return NextResponse.json({ error: 'Не авторизован' }, { status: 401 });
+  const auth = await requireAuth();
+  if ('response' in auth) return auth.response;
 
   const uploadDir = path.join(process.cwd(), 'public', 'uploads');
   await mkdir(uploadDir, { recursive: true });

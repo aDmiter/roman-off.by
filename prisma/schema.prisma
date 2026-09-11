@@ -20,14 +20,26 @@ enum MembershipStatus {
 }
 
 model AdminUser {
-  id        String         @id @default(cuid())
-  name      String
-  email     String         @unique
-  phone     String
-  password  String // scrypt hash (salt:hash)
-  role      Role           @default(STAFF)
-  createdAt DateTime       @default(now())
-  sessions  AdminSession[]
+  id          String                @id @default(cuid())
+  name        String
+  email       String                @unique
+  phone       String
+  password    String // scrypt hash (salt:hash)
+  role        Role                  @default(STAFF)
+  active      Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  sessions    AdminSession[]
+  permissions AdminUserPermission[]
+}
+
+// Гранулярные права доступа к разделам админки (для роли STAFF)
+model AdminUserPermission {
+  id         Int       @id @default(autoincrement())
+  user       AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  permission String
+  @@unique([userId, permission])
+  @@index([userId])
 }
 
 model AdminSession {
