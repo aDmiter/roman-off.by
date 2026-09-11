@@ -44,6 +44,7 @@ export default function MembershipsPage() {
   const [newCard, setNewCard] = useState<Membership | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [shareMsg, setShareMsg] = useState<string | null>(null);
 
   const [query, setQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -135,6 +136,28 @@ export default function MembershipsPage() {
 </body></html>`);
     win.document.close();
     win.focus();
+  };
+
+  const shareLink = async (m: Membership) => {
+    const url = `${window.location.origin}/${m.code.toLowerCase()}`;
+    const nav = navigator as any;
+    if (nav.share) {
+      try {
+        await nav.share({
+          title: 'Абонемент ROMANOFF FIGHT CLUB',
+          text: `Абонемент ROMANOFF FIGHT CLUB — ${m.holderName}. Осталось занятий: ${m.remaining}.`,
+          url
+        });
+        return;
+      } catch {}
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareMsg('Ссылка скопирована в буфер обмена');
+    } catch {
+      setShareMsg(url);
+    }
+    setTimeout(() => setShareMsg(null), 5000);
   };
 
   const c = newCard;
@@ -259,7 +282,10 @@ export default function MembershipsPage() {
                 <img src={c.barcode} alt="Штрихкод" className="mt-3 w-full rounded" />
                 <div className="mt-2 break-all text-center font-mono text-xs text-sub">{c.code}</div>
               </div>
-              <button onClick={() => printCard(c)} className="btn-ghost mt-4 w-full px-4 py-3 text-sm">Печать / карточка</button>
+              <div className="mt-4 flex items-center gap-2">
+                <button onClick={() => printCard(c)} className="btn-ghost flex-1 px-4 py-3 text-sm">Печать / карточка</button>
+                <button onClick={() => shareLink(c)} className="btn-ghost flex-1 px-4 py-3 text-sm">Отправить ссылку</button>
+              </div>
             </div>
           )}
         </div>
@@ -287,8 +313,9 @@ export default function MembershipsPage() {
                   </div>
                   <img src={m.barcode} alt="Barcode" className="mt-3 w-full rounded bg-white p-1" />
                   <div className="mt-2 break-all font-mono text-[11px] text-sub">{m.code}</div>
-                  <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button onClick={() => printCard(m)} className="btn-ghost flex-1 px-3 py-2 text-xs">Печать</button>
+                    <button onClick={() => shareLink(m)} className="btn-ghost flex-1 px-3 py-2 text-xs">Отправить ссылку</button>
                     <button onClick={() => remove(m.id)} className="px-3 py-2 text-xs text-red-400 hover:underline">Удалить</button>
                   </div>
                 </div>
@@ -297,6 +324,12 @@ export default function MembershipsPage() {
           </div>
         </div>
       </div>
+
+      {shareMsg && (
+        <p className="fixed bottom-4 right-4 z-[90] max-w-xs break-all rounded-lg border border-gold/40 bg-black px-4 py-2 text-sm text-gold-light">
+          {shareMsg}
+        </p>
+      )}
     </div>
   );
 }
