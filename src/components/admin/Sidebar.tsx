@@ -35,6 +35,7 @@ export default function Sidebar({ userName, permissions }: { userName: string; p
             <Link
               key={l.href}
               href={l.href}
+              onClick={() => setOpen(false)}
               className={`mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 font-display text-sm tracking-widest uppercase transition-colors ${isActive ? 'bg-gold/15 text-gold' : 'text-sub hover:bg-white/5 hover:text-main'}`}
             >
               <span className="text-base">{l.icon}</span>
