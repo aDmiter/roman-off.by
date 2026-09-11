@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { fetcher, postJSON, patchJSON, putJSON, del } from '@/lib/api';
-import { WEEKDAYS } from '@/lib/constants';
+import { MEMBERSHIP_SESSIONS, WEEKDAYS } from '@/lib/constants';
 
 const schema = z.object({
   name: z.string().min(2, 'Укажите название'),
@@ -34,6 +34,37 @@ export default function SettingsPage() {
   const [hours, setHours] = useState<WorkHours[]>(defaultHours());
   const [hoursMsg, setHoursMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [savingHours, setSavingHours] = useState(false);
+
+  const { data: membershipTypes } = useSWR<any[]>('/api/membership-types', fetcher);
+  const [mt, setMt] = useState<{ name: string; sessions: number; price: number; durationDays: number }>({ name: '', sessions: 4, price: 0, durationDays: 30 });
+  const [editingMtId, setEditingMtId] = useState<number | null>(null);
+  const [mtMsg, setMtMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  const submitMt = async () => {
+    setMtMsg(null);
+    if (mt.name.trim().length < 2) { setMtMsg({ type: 'err', text: 'Выберите занятие' }); return; }
+    try {
+      if (editingMtId) await patchJSON(`/api/membership-types/${editingMtId}`, mt);
+      else await postJSON('/api/membership-types', mt);
+      setMt({ name: '', sessions: 4, price: 0, durationDays: 30 });
+      setEditingMtId(null);
+      mutate('/api/membership-types');
+      setMtMsg({ type: 'ok', text: 'Сохранено' });
+    } catch (e: any) {
+      setMtMsg({ type: 'err', text: e.message });
+    }
+  };
+
+  const startEditMt = (t: any) => {
+    setEditingMtId(t.id);
+    setMt({ name: t.name, sessions: t.sessions, price: t.price, durationDays: t.durationDays });
+  };
+
+  const removeMt = async (id: number) => {
+    if (!confirm('Удалить вид абонемента?')) return;
+    await del(`/api/membership-types/${id}`);
+    mutate('/api/membership-types');
+  };
 
   useEffect(() => {
     if (!workHoursData) return;
@@ -159,6 +190,87 @@ export default function SettingsPage() {
                   <div className="flex items-center gap-4">
                     <button onClick={() => startEdit(l)} className="text-xs text-gold-light hover:underline">Изменить</button>
                     <button onClick={() => remove(l.id)} className="text-xs text-red-400 hover:underline">Удалить</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card-dark rounded-2xl p-6">
+        <div className="mb-6 flex items-center justify-between border-b border-white/5 pb-4">
+          <div>
+            <h2 className="font-display text-base tracking-widest uppercase text-gold">Виды абонементов</h2>
+            <p className="mt-1 text-xs text-sub">Занятие + количество занятий + цена + срок действия (дней)</p>
+          </div>
+          <span className="font-display text-xs tracking-widest text-sub uppercase">{membershipTypes?.length ?? 0} шт.</span>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="h-fit rounded-xl border border-white/5 bg-black/30 p-5 lg:col-span-1">
+            <h3 className="mb-4 font-display text-sm tracking-widest uppercase text-gold">
+              {editingMtId ? 'Редактировать вид' : 'Добавить вид'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="label-dark">Занятие (название)</label>
+                <select className="input-dark" value={mt.name} onChange={(e) => setMt({ ...mt, name: e.target.value })}>
+                  <option value="">— выберите занятие —</option>
+                  {(lessonTypes ?? []).map((l) => (
+                    <option key={l.id} value={l.name}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label-dark">Занятий</label>
+                  <select className="input-dark" value={mt.sessions} onChange={(e) => setMt({ ...mt, sessions: Number(e.target.value) })}>
+                    {MEMBERSHIP_SESSIONS.map((s) => (
+                      <option key={s} value={s}>{s} занятий</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label-dark">Срок (дней)</label>
+                  <input type="number" className="input-dark" value={mt.durationDays} onChange={(e) => setMt({ ...mt, durationDays: Number(e.target.value) })} />
+                </div>
+              </div>
+              <div>
+                <label className="label-dark">Цена (BYN)</label>
+                <input type="number" className="input-dark" value={mt.price} onChange={(e) => setMt({ ...mt, price: Number(e.target.value) })} />
+              </div>
+              {mtMsg && <p className={`text-sm ${mtMsg.type === 'ok' ? 'text-green-400' : 'text-red-400'}`}>{mtMsg.text}</p>}
+              <div className="flex gap-3">
+                <button type="button" onClick={submitMt} className="btn-gold flex-1 px-5 py-3 text-sm">
+                  {editingMtId ? 'Сохранить' : 'Добавить'}
+                </button>
+                {editingMtId && (
+                  <button type="button" onClick={() => { setMt({ name: '', sessions: 4, price: 0, durationDays: 30 }); setEditingMtId(null); }} className="btn-ghost px-4 py-3 text-sm">
+                    Отмена
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2">
+            {membershipTypes && membershipTypes.length === 0 && (
+              <p className="rounded-xl border border-white/5 bg-black/30 py-12 text-center text-sub">Видов пока нет</p>
+            )}
+            <div className="space-y-2">
+              {(membershipTypes ?? []).map((t: any) => (
+                <div
+                  key={t.id}
+                  className={`flex items-center justify-between rounded-xl border px-5 py-4 ${editingMtId === t.id ? 'border-gold/50 bg-gold/5' : 'border-white/5 bg-black/30'}`}
+                >
+                  <div>
+                    <div className="font-display tracking-widest uppercase text-main">{t.name}</div>
+                    <div className="mt-1 text-sm text-gold">{t.sessions} занятий · {t.price} BYN · {t.durationDays} дней</div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <button onClick={() => startEditMt(t)} className="text-xs text-gold-light hover:underline">Изменить</button>
+                    <button onClick={() => removeMt(t.id)} className="text-xs text-red-400 hover:underline">Удалить</button>
                   </div>
                 </div>
               ))}

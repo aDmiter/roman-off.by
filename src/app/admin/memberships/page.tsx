@@ -12,16 +12,21 @@ import { DEFAULT_TOTAL_SESSIONS } from '@/lib/constants';
 const schema = z.object({
   holderName: z.string().min(2, 'Укажите имя'),
   phone: z.string().min(3, 'Укажите телефон'),
-  totalSessions: z.coerce.number().int().positive().default(DEFAULT_TOTAL_SESSIONS),
-  expiresAt: z.string().optional(),
-  clientId: z.coerce.number().int().optional()
+  clientId: z.coerce.number().int().optional(),
+  membershipTypeId: z.string().min(1, 'Выберите вид абонемента')
 });
 
 type FormData = z.infer<typeof schema>;
 type Client = { id: number; name: string; phone: string; email?: string | null };
-type Membership = FormData & {
+type MembershipType = { id: number; name: string; sessions: number; price: number; durationDays: number };
+type Membership = {
   id: number;
   code: string;
+  holderName: string;
+  phone: string;
+  typeName?: string | null;
+  price?: number | null;
+  totalSessions: number;
   usedSessions: number;
   remaining: number;
   status: string;
@@ -30,11 +35,12 @@ type Membership = FormData & {
   barcode: string;
 };
 
-const empty: FormData = { holderName: '', phone: '', totalSessions: DEFAULT_TOTAL_SESSIONS, expiresAt: '', clientId: undefined };
+const empty: FormData = { holderName: '', phone: '', clientId: undefined, membershipTypeId: '' };
 
 export default function MembershipsPage() {
   const { data: memberships, isLoading } = useSWR<Membership[]>('/api/memberships', fetcher);
   const { data: clients, mutate: mutateClients } = useSWR<Client[]>('/api/clients', fetcher);
+  const { data: membershipTypes } = useSWR<MembershipType[]>('/api/membership-types', fetcher);
   const [newCard, setNewCard] = useState<Membership | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,10 +51,12 @@ export default function MembershipsPage() {
   const [newPhone, setNewPhone] = useState('');
   const [newErr, setNewErr] = useState<string | null>(null);
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: empty
   });
+
+  const selectedType = (membershipTypes ?? []).find((t) => t.id === Number(watch('membershipTypeId')));
 
   const filtered = (clients ?? []).filter((c) => {
     const s = query.trim().toLowerCase();
@@ -204,16 +212,33 @@ export default function MembershipsPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label-dark">Занятий</label>
-                  <input type="number" className="input-dark" {...register('totalSessions')} />
-                </div>
-                <div>
-                  <label className="label-dark">Срок (до)</label>
-                  <input type="date" className="input-dark" {...register('expiresAt')} />
-                </div>
+              <div>
+                <label className="label-dark">Вид абонемента</label>
+                <select className="input-dark" {...register('membershipTypeId')}>
+                  <option value="">— выберите вид —</option>
+                  {(membershipTypes ?? []).map((t) => (
+                    <option key={t.id} value={String(t.id)}>{t.name} · {t.sessions} занятий · {t.price} BYN</option>
+                  ))}
+                </select>
+                {errors.membershipTypeId && <p className="mt-1 text-xs text-red-400">{errors.membershipTypeId.message}</p>}
               </div>
+
+              {selectedType && (
+                <div className="grid grid-cols-3 gap-3 rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 text-center">
+                  <div>
+                    <div className="font-display text-lg text-gold">{selectedType.sessions}</div>
+                    <div className="text-xs text-sub">занятий</div>
+                  </div>
+                  <div>
+                    <div className="font-display text-lg text-gold">{selectedType.price}</div>
+                    <div className="text-xs text-sub">BYN</div>
+                  </div>
+                  <div>
+                    <div className="font-display text-lg text-gold">{selectedType.durationDays}</div>
+                    <div className="text-xs text-sub">дней</div>
+                  </div>
+                </div>
+              )}
               {error && <p className="text-sm text-red-400">{error}</p>}
               <button disabled={loading} className="btn-gold w-full px-5 py-3 text-sm">
                 {loading ? 'Создаём...' : 'Сгенерировать абонемент'}
@@ -227,6 +252,7 @@ export default function MembershipsPage() {
               <div className="rounded-xl border border-gold/50 bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] p-5">
                 <div className="text-center font-display text-lg font-bold tracking-widest text-gold">ROMANOFF</div>
                 <div className="text-center text-xs tracking-widest text-sub">FIGHT CLUB · {c.totalSessions} ЗАНЯТИЙ</div>
+                {c.typeName && <div className="mt-1 text-center text-sm text-gold-light">{c.typeName}</div>}
                 <div className="mt-4 text-main">{c.holderName}</div>
                 <div className="text-sm text-sub">{c.phone}</div>
                 <div className="mt-3 flex justify-between text-sm"><span className="text-gold">Осталось</span><span className="text-main">{c.remaining}</span></div>
@@ -249,6 +275,7 @@ export default function MembershipsPage() {
                     <div>
                       <div className={`font-display tracking-widest uppercase ${usedUp ? 'text-sub' : 'text-main'}`}>{m.holderName}</div>
                       <div className="text-xs text-sub">{m.phone}</div>
+                      {m.typeName && <div className="text-xs text-gold-light">{m.typeName} · {m.totalSessions} занятий</div>}
                     </div>
                     <span className={`rounded px-2 py-0.5 text-xs ${m.status === 'ACTIVE' ? 'bg-gold/10 text-gold' : 'bg-red-500/15 text-red-300'}`}>
                       {m.remaining}/{m.totalSessions}

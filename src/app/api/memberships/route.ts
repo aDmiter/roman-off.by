@@ -11,7 +11,8 @@ const createSchema = z.object({
   phone: z.string().min(1, 'Укажите телефон'),
   totalSessions: z.coerce.number().int().positive().default(DEFAULT_TOTAL_SESSIONS),
   expiresAt: z.string().optional().nullable(),
-  clientId: z.coerce.number().int().optional().nullable()
+  clientId: z.coerce.number().int().optional().nullable(),
+  membershipTypeId: z.coerce.number().int().optional().nullable()
 });
 
 function toView(m: any) {
@@ -20,6 +21,9 @@ function toView(m: any) {
     code: m.code,
     holderName: m.holderName,
     phone: m.phone,
+    typeName: m.typeName,
+    price: m.price,
+    membershipTypeId: m.membershipTypeId,
     totalSessions: m.totalSessions,
     usedSessions: m.usedSessions,
     status: m.status,
@@ -51,6 +55,20 @@ export async function POST(req: Request) {
   }
   const data = parsed.data;
 
+  let totalSessions = data.totalSessions;
+  let price: number | null = null;
+  let typeName: string | null = null;
+  let expiresAt = data.expiresAt ? new Date(`${data.expiresAt}T00:00:00`) : null;
+
+  if (data.membershipTypeId) {
+    const type = await prisma.membershipType.findUnique({ where: { id: data.membershipTypeId } });
+    if (!type) return NextResponse.json({ error: 'Вид абонемента не найден' }, { status: 400 });
+    totalSessions = type.sessions;
+    price = type.price;
+    typeName = type.name;
+    expiresAt = new Date(Date.now() + type.durationDays * 24 * 60 * 60 * 1000);
+  }
+
   let code = generateMembershipCode();
   while (await prisma.membership.findUnique({ where: { code } })) {
     code = generateMembershipCode();
@@ -61,8 +79,11 @@ export async function POST(req: Request) {
       code,
       holderName: data.holderName,
       phone: data.phone,
-      totalSessions: data.totalSessions,
-      expiresAt: data.expiresAt ? new Date(`${data.expiresAt}T00:00:00`) : null,
+      totalSessions,
+      price,
+      typeName,
+      membershipTypeId: data.membershipTypeId ?? null,
+      expiresAt,
       clientId: data.clientId ?? null
     }
   });

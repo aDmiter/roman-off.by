@@ -38,6 +38,8 @@ export const COACH_COLORS = [
 
 export const DEFAULT_TOTAL_SESSIONS = 4;
 
+export const MEMBERSHIP_SESSIONS = [4, 8, 12];
+
 // Каталог разделов админки = единицы прав (RBAC).
 export const ADMIN_SECTIONS = [
   { key: 'dashboard', label: 'Обзор', href: '/admin', icon: '◈' },

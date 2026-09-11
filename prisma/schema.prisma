@@ -140,18 +140,22 @@ model Booking {
 }
 
 model Membership {
-  id            Int               @id @default(autoincrement())
-  code          String            @unique
-  client        Client?           @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  clientId      Int?
-  holderName    String
-  phone         String
-  totalSessions Int               @default(4)
-  usedSessions  Int               @default(0)
-  status        MembershipStatus  @default(ACTIVE)
-  createdAt     DateTime          @default(now())
-  expiresAt     DateTime?
-  usages        MembershipUsage[]
+  id             Int               @id @default(autoincrement())
+  code           String            @unique
+  client         Client?           @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId       Int?
+  membershipType MembershipType?   @relation(fields: [membershipTypeId], references: [id], onDelete: SetNull)
+  membershipTypeId Int?
+  typeName       String?
+  price          Int?
+  holderName     String
+  phone          String
+  totalSessions  Int               @default(4)
+  usedSessions   Int               @default(0)
+  status         MembershipStatus  @default(ACTIVE)
+  createdAt      DateTime          @default(now())
+  expiresAt      DateTime?
+  usages         MembershipUsage[]
 }
 
 model MembershipUsage {
@@ -178,4 +182,15 @@ model WorkingHours {
   openTime  String // "08:00"
   closeTime String // "22:00"
   updatedAt DateTime @updatedAt
+}
+
+// Settings: membership types (вид абонемента: занятие + кол-во занятий + цена + срок)
+model MembershipType {
+  id           Int          @id @default(autoincrement())
+  name         String // из «Занятия» (напр. «Индивидуальная тренировка»)
+  sessions     Int // 4 / 8 / 12
+  price        Int          @default(0)
+  durationDays Int          @default(30)
+  createdAt    DateTime     @default(now())
+  memberships  Membership[]
 }

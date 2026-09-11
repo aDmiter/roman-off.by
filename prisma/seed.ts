@@ -101,6 +101,23 @@ async function main() {
     console.log('✔ Добавлено время работы (7 дней)');
   }
 
+  const mtCount = await prisma.membershipType.count();
+  if (mtCount === 0) {
+    const group = 'Групповая тренировка';
+    const personal = 'Индивидуальная тренировка';
+    await prisma.membershipType.createMany({
+      data: [
+        { name: group, sessions: 4, price: 100, durationDays: 30 },
+        { name: group, sessions: 8, price: 180, durationDays: 30 },
+        { name: group, sessions: 12, price: 240, durationDays: 30 },
+        { name: personal, sessions: 4, price: 260, durationDays: 30 },
+        { name: personal, sessions: 8, price: 480, durationDays: 30 },
+        { name: personal, sessions: 12, price: 660, durationDays: 30 }
+      ]
+    });
+    console.log('✔ Добавлено 6 видов абонементов');
+  }
+
   console.log('Seed завершён.');
 }
 
