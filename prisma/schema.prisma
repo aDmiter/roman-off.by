@@ -88,6 +88,7 @@ model Client {
   birthDate       DateTime?
   favoriteCoach   Coach?   @relation(fields: [favoriteCoachId], references: [id], onDelete: SetNull)
   favoriteCoachId Int?
+  verified        Boolean  @default(true) // false = «Непроверено» (заполнено через анкету)
   createdAt       DateTime @default(now())
   visits          Visit[]
   memberships     Membership[]

@@ -21,6 +21,7 @@ type ClientLite = {
   favoriteCoach?: { id: number; name: string; color?: string | null } | null;
   _count: { visits: number; memberships: number };
   createdAt: string;
+  verified: boolean;
 };
 type SessionLite = { id: number; title: string; date: string; startTime: string; endTime: string; coachName: string };
 type Visit = { id: number; visitedAt: string; note?: string | null; session?: { date: string; startTime: string; title: string } | null; coach?: { name: string; color?: string | null } | null };
@@ -124,7 +125,14 @@ export default function ClientsPage() {
             <div className="col-span-2 flex items-center gap-3 md:col-span-3">
               <Avatar c={c} />
               <div className="min-w-0">
-                <div className="truncate font-display tracking-widest uppercase">{c.name}</div>
+                <div className="flex items-center gap-2">
+                  <span className="truncate font-display tracking-widest uppercase">{c.name}</span>
+                  {!c.verified && (
+                    <span className="shrink-0 rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-amber-300">
+                      Непроверено
+                    </span>
+                  )}
+                </div>
                 <div className="truncate text-xs text-sub">{c.email || '—'}</div>
               </div>
             </div>
@@ -300,6 +308,12 @@ function ClientDrawer({ client, coaches, sessions, edit, setEdit, onClose, onCha
     onClose();
   };
 
+  const markVerified = async () => {
+    await patchJSON(`/api/clients/${client.id}`, { verified: true });
+    onChanged();
+    onMsg('Клиент отмечен проверенным');
+  };
+
   return (
     <div className="fixed inset-0 z-[70] bg-black/60" onClick={onClose}>
       <div className="absolute right-0 top-0 flex h-full w-full max-w-2xl flex-col bg-[#0d0d0d] shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -307,12 +321,22 @@ function ClientDrawer({ client, coaches, sessions, edit, setEdit, onClose, onCha
           <div className="flex items-center gap-4">
             <Avatar c={client} size="h-16 w-16" />
             <div>
-              <div className="font-display text-xl font-bold tracking-widest uppercase">{client.name}</div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-xl font-bold tracking-widest uppercase">{client.name}</span>
+                {!client.verified && (
+                  <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-widest text-amber-300">
+                    Непроверено
+                  </span>
+                )}
+              </div>
               <div className="text-sm text-sub">{client.phone}{client.email ? ` · ${client.email}` : ''}</div>
               <div className="text-sm mt-1"><Age birthDate={client.birthDate} /></div>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {!client.verified && (
+              <button onClick={markVerified} className="btn-gold px-4 py-1.5 text-xs">Отметить проверенным</button>
+            )}
             <button onClick={() => setEdit(true)} className="btn-ghost px-4 py-1.5 text-xs">Редактировать</button>
             <button onClick={onClose} className="text-sub hover:text-gold">✕</button>
           </div>

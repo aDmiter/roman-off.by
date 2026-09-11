@@ -94,6 +94,9 @@ export default function Contacts() {
                 {loading ? 'Отправляем...' : 'Отправить заявку'}
               </button>
               <p className="text-center text-xs text-sub">Мы подберём подходящую группу или формат</p>
+              <a href="/anketa" className="block text-center text-sm text-gold-light hover:underline">
+                Заполнить анкету клиента →
+              </a>
             </form>
           )}
         </div>

@@ -9,7 +9,8 @@ const schema = z.object({
   email: z.string().email().optional().or(z.literal('')),
   birthDate: z.string().optional().or(z.literal('')),
   photo: z.string().nullable().optional(),
-  favoriteCoachId: z.coerce.number().int().optional().nullable()
+  favoriteCoachId: z.coerce.number().int().optional().nullable(),
+  verified: z.boolean().optional()
 });
 
 type Params = { params: { id: string } };
@@ -58,7 +59,8 @@ export async function PATCH(req: Request, { params }: Params) {
         email: d.email === undefined ? undefined : d.email || null,
         birthDate: d.birthDate === undefined ? undefined : (d.birthDate ? new Date(`${d.birthDate}T00:00:00`) : null),
         photo: d.photo,
-        favoriteCoachId: d.favoriteCoachId
+        favoriteCoachId: d.favoriteCoachId,
+        verified: d.verified
       }
     })
     .catch(() => null);
