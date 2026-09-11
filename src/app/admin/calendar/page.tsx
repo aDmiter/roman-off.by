@@ -9,7 +9,7 @@ import ruLocale from '@fullcalendar/core/locales/ru';
 import type { EventClickArg, EventInput } from '@fullcalendar/core';
 import type { DateClickArg } from '@fullcalendar/interaction';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
 import { fetcher, postJSON, patchJSON, del } from '@/lib/api';
@@ -44,6 +44,17 @@ export default function CalendarPage() {
   const [modal, setModal] = useState<Modal | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
+  const calRef = useRef<FullCalendar>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileView, setMobileView] = useState('timeGridDay');
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('new') === '1') {
@@ -51,6 +62,13 @@ export default function CalendarPage() {
       window.history.replaceState(null, '', '/admin/calendar');
     }
   }, []);
+
+  const changeMobileView = (view: string) => {
+    setMobileView(view);
+    calRef.current?.getApi().changeView(view);
+  };
+
+  const goToday = () => calRef.current?.getApi().today();
 
   const visibleSessions = (sessions ?? []).filter((s) => filterCoach === 'all' || s.coachId === filterCoach);
 
@@ -111,30 +129,54 @@ export default function CalendarPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-widest uppercase">Календарь</h1>
-          <p className="mt-1 text-sm text-sub">Записи всех тренеров · кликните по слоту, чтобы создать запись</p>
+          <p className="mt-1 hidden text-sm text-sub sm:block">Записи всех тренеров · нажмите на слот, чтобы создать запись</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-sub">Тренер:</span>
-          <select value={filterCoach} onChange={(e) => setFilterCoach(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="input-dark w-auto py-1.5 text-sm">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <select
+            value={filterCoach}
+            onChange={(e) => setFilterCoach(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            className="input-dark w-auto flex-1 py-2 text-sm sm:flex-none"
+          >
             <option value="all">Все тренеры</option>
             {(coaches ?? []).map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <button onClick={() => setModal({ mode: 'create' })} className="btn-gold px-4 py-2 text-sm">+ Запись</button>
+          <button onClick={() => setModal({ mode: 'create' })} className="btn-gold whitespace-nowrap px-4 py-2 text-sm">+ Запись</button>
         </div>
       </div>
       {msg && <p className="rounded-lg border border-gold/40 bg-gold/10 px-4 py-2 text-sm text-gold-light">{msg}</p>}
 
-      <div className="card-dark overflow-hidden rounded-2xl p-2">
+      {isMobile && (
+        <div className="flex items-center gap-2">
+          <select
+            value={mobileView}
+            onChange={(e) => changeMobileView(e.target.value)}
+            className="input-dark w-auto flex-1 py-2 text-sm"
+          >
+            <option value="timeGridDay">День</option>
+            <option value="timeGridWeek">Неделя</option>
+            <option value="dayGridMonth">Месяц</option>
+            <option value="listWeek">Список</option>
+          </select>
+          <button onClick={goToday} className="btn-ghost whitespace-nowrap px-4 py-2 text-sm">Сегодня</button>
+        </div>
+      )}
+
+      <div className="card-dark overflow-hidden rounded-2xl p-1 sm:p-2">
         <FullCalendar
+          key={isMobile ? 'mobile' : 'desktop'}
+          ref={calRef}
           plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-          headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' }}
-          initialView="timeGridWeek"
+          headerToolbar={
+            isMobile
+              ? { left: 'prev,next', center: 'title', right: '' }
+              : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek' }
+          }
+          initialView={isMobile ? 'timeGridDay' : 'timeGridWeek'}
           locale="ru"
           locales={[ruLocale]}
           firstDay={1}

@@ -324,3 +324,24 @@ body {
 .fc .fc-list-event-time,
 .fc .fc-list-day-text { color: #e0e0e0 !important; }
 .fc .fc-list-event:hover td { background: rgba(212, 175, 55, 0.08) !important; }
+
+/* ---------- FullCalendar: мобильная адаптация ---------- */
+@media (max-width: 767px) {
+  .fc .fc-toolbar { flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+  .fc .fc-toolbar-chunk { display: flex; align-items: center; gap: 0.35rem; }
+  .fc .fc-toolbar-title { font-size: 1.05rem !important; }
+  .fc .fc-button {
+    padding: 0.35rem 0.6rem !important;
+    font-size: 0.8rem !important;
+    line-height: 1.2;
+    border-radius: 6px;
+  }
+  .fc .fc-timegrid-slot { height: 2.75rem; }
+  .fc .fc-timegrid-slot-label-cushion,
+  .fc .fc-timegrid-axis-cushion { font-size: 0.7rem !important; }
+  .fc .fc-col-header-cell-cushion { font-size: 0.72rem !important; padding: 0.35rem 0.2rem; }
+  .fc .fc-timegrid-slot-minor { border-top-style: dotted; }
+  .fc .fc-event { font-size: 0.72rem; padding: 1px 3px; }
+  .fc .fc-timegrid-event .fc-event-main { white-space: normal; overflow: hidden; }
+  .fc .fc-daygrid-day-number { font-size: 0.78rem !important; }
+}
