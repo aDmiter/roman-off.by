@@ -113,12 +113,16 @@ npm run db:studio      # prisma studio
 
 ---
 
-## Деплой (Beget, Node.js)
+## Деплой (Beget, Passenger + Next.js)
 
-- Хостинг: **beget.com**, домен `roman-off.by`. Приложение — в `~/roman-off.by/roman-off-by` (рядом с `public_html`, который для Node не используется).
-- Стартовый файл для панели Node.js — `server.js` (кастомный сервер Next; хостинг передаёт `PORT`). Альтернатива — команда `npm run serve`.
-- Сборка — на сервере (Prisma-движок под Linux; `.next`/`node_modules` не заливать).
-- Полная пошаговая инструкция — в **`DEPLOY.md`**.
+- Хостинг: **beget.com** (пользователь `admite`), домен `roman-off.by`. Приложение — `~/roman-off.by/roman-off-by`.
+- Node запускается через **Phusion Passenger**: `public_html` — симлинк на `roman-off-by/public`, в `public/.htaccess` — директивы Passenger (стартовый файл `server.js`).
+- Перезапуск — `touch ~/roman-off.by/roman-off-by/tmp/restart.txt`.
+- Сборка на сервере с ограничением воркеров (у Beget лимит на потоки):
+  `TOKIO_WORKER_THREADS=1 UV_THREADPOOL_SIZE=1 NODE_OPTIONS=--max-old-space-size=1024 npm run build`
+  (`next.config.mjs` уже содержит `experimental.cpus=1`, `workerThreads=false`).
+- Prisma-движок под Linux генерируется на сервере; `.next`/`node_modules` не заливать.
+- Полная инструкция — в **`DEPLOY.md`**.
 
 Кратко (обновление):
 
@@ -126,8 +130,8 @@ npm run db:studio      # prisma studio
 cd ~/roman-off.by/roman-off-by
 git pull && npm ci && npx prisma generate
 npx prisma db push    # только если менялась prisma/schema.prisma
-npm run build
-# затем перезапустить Node-приложение в панели Beget
+TOKIO_WORKER_THREADS=1 UV_THREADPOOL_SIZE=1 NODE_OPTIONS=--max-old-space-size=1024 npm run build
+touch tmp/restart.txt
 ```
 
 > При переходе на Prisma-миграции: `npx prisma migrate deploy`.

@@ -42,3 +42,6 @@ next-env.d.ts
 !/public/uploads/favicon.ico
 !/public/uploads/hero_bg.jpg
 !/public/uploads/photo.JPG
+
+# deploy-specific (Passenger на Beget)
+/public/.htaccess
