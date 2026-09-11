@@ -135,16 +135,18 @@ export default function CalendarPage() {
           <p className="mt-1 hidden text-sm text-sub sm:block">Записи всех тренеров · нажмите на слот, чтобы создать запись</p>
         </div>
         <div className="flex w-full items-center gap-2 sm:w-auto">
-          <select
-            value={filterCoach}
-            onChange={(e) => setFilterCoach(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            className="input-dark w-auto flex-1 py-2 text-sm sm:flex-none"
-          >
-            <option value="all">Все тренеры</option>
-            {(coaches ?? []).map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <div className="min-w-0 flex-1 sm:w-52 sm:flex-none">
+            <select
+              value={filterCoach}
+              onChange={(e) => setFilterCoach(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              className="input-dark py-2 text-sm"
+            >
+              <option value="all">Все тренеры</option>
+              {(coaches ?? []).map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
           <button onClick={() => setModal({ mode: 'create' })} className="btn-gold whitespace-nowrap px-4 py-2 text-sm">+ Запись</button>
         </div>
       </div>
@@ -152,16 +154,18 @@ export default function CalendarPage() {
 
       {isMobile && (
         <div className="flex items-center gap-2">
-          <select
-            value={mobileView}
-            onChange={(e) => changeMobileView(e.target.value)}
-            className="input-dark w-auto flex-1 py-2 text-sm"
-          >
-            <option value="timeGridDay">День</option>
-            <option value="timeGridWeek">Неделя</option>
-            <option value="dayGridMonth">Месяц</option>
-            <option value="listWeek">Список</option>
-          </select>
+          <div className="min-w-0 flex-1">
+            <select
+              value={mobileView}
+              onChange={(e) => changeMobileView(e.target.value)}
+              className="input-dark py-2 text-sm"
+            >
+              <option value="timeGridDay">День</option>
+              <option value="timeGridWeek">Неделя</option>
+              <option value="dayGridMonth">Месяц</option>
+              <option value="listWeek">Список</option>
+            </select>
+          </div>
           <button onClick={goToday} className="btn-ghost whitespace-nowrap px-4 py-2 text-sm">Сегодня</button>
         </div>
       )}

@@ -292,9 +292,9 @@ export default function SettingsPage() {
             <div key={h.dayOfWeek} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/5 bg-black/30 px-5 py-3">
               <div className="font-display tracking-widest uppercase text-main">{WEEKDAYS[h.dayOfWeek - 1]}</div>
               <div className="flex items-center gap-2">
-                <input type="time" value={h.openTime} onChange={(e) => setHour(h.dayOfWeek, 'openTime', e.target.value)} className="input-dark w-auto py-2" />
+                <input type="time" value={h.openTime} onChange={(e) => setHour(h.dayOfWeek, 'openTime', e.target.value)} className="input-dark !w-auto py-2" />
                 <span className="text-sub">—</span>
-                <input type="time" value={h.closeTime} onChange={(e) => setHour(h.dayOfWeek, 'closeTime', e.target.value)} className="input-dark w-auto py-2" />
+                <input type="time" value={h.closeTime} onChange={(e) => setHour(h.dayOfWeek, 'closeTime', e.target.value)} className="input-dark !w-auto py-2" />
               </div>
             </div>
           ))}
