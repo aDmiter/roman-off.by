@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import { postJSON } from '@/lib/api';
 
 type Scanned = {
@@ -39,43 +40,93 @@ export default function ScanPage() {
   const [usedNote, setUsedNote] = useState<string | null>(null);
   const [flash, setFlash] = useState<'ok' | 'err'>('ok');
   const lastRef = useRef<string>('');
+  const busyRef = useRef(false);
+  const [canTorch, setCanTorch] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
 
   const start = async () => {
     setCameraError(null);
     setResult(null);
     setUsedNote(null);
     setLookupError(null);
+    lastRef.current = '';
     try {
-      const reader = new BrowserMultiFormatReader();
-      const controls = await reader.decodeFromVideoDevice(
-        undefined,
-        videoRef.current!,
-        (r, _err, cntrls) => {
-          if (r) {
-            const text = r.getText();
-            if (text && text !== lastRef.current) {
-              lastRef.current = text;
-              handleCode(text);
-            }
-          }
+      const hints = new Map();
+      hints.set(DecodeHintType.TRY_HARDER, true);
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.CODE_93,
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.ITF,
+        BarcodeFormat.QR_CODE
+      ]);
+      const reader = new BrowserMultiFormatReader(hints);
+      const constraints: MediaStreamConstraints = {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        },
+        audio: false
+      };
+      const controls = await reader.decodeFromConstraints(constraints, videoRef.current!, (r) => {
+        if (!r) return;
+        const text = r.getText();
+        if (text && text !== lastRef.current) {
+          lastRef.current = text;
+          try {
+            navigator.vibrate?.(80);
+          } catch {}
+          handleCode(text);
         }
-      );
+      });
       controlsRef.current = controls;
       setScanning(true);
+      tuneTrack();
     } catch (e: any) {
       setCameraError('Нет доступа к камере. Разрешите доступ или введите код вручную.');
       setScanning(false);
     }
   };
 
+  const tuneTrack = async () => {
+    try {
+      const stream = videoRef.current?.srcObject as MediaStream | null;
+      const track = stream?.getVideoTracks?.()[0];
+      if (!track) return;
+      const caps: any = (track as any).getCapabilities?.() || {};
+      if (Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')) {
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
+      }
+      setCanTorch(Array.isArray(caps.torch) && caps.torch.includes(true));
+    } catch {}
+  };
+
+  const toggleTorch = async () => {
+    try {
+      const stream = videoRef.current?.srcObject as MediaStream | null;
+      const track = stream?.getVideoTracks?.()[0];
+      if (!track) return;
+      const next = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: next } as any] });
+      setTorchOn(next);
+    } catch {}
+  };
+
   const stop = () => {
     controlsRef.current?.stop();
     controlsRef.current = null;
     setScanning(false);
+    setTorchOn(false);
     lastRef.current = '';
   };
 
   const handleCode = async (raw: string) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setLookupError(null);
     setUsedNote(null);
@@ -84,13 +135,15 @@ export default function ScanPage() {
       const res = await postJSON<Scanned>('/api/memberships/scan', { code: raw });
       setResult(res);
       setFlash('ok');
-      setTimeout(() => setFlash('ok'), 500);
+      setTimeout(() => setFlash('ok'), 600);
     } catch (e: any) {
       setResult(null);
       setLookupError(e.message || 'Абонемент не найден');
       setFlash('err');
-      setTimeout(() => setFlash('err'), 500);
+      lastRef.current = '';
+      setTimeout(() => setFlash('err'), 600);
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
@@ -128,7 +181,14 @@ export default function ScanPage() {
           <p className="mt-1 text-sm text-sub">Наведите камеру на штрихкод, затем спишите занятие</p>
         </div>
         {scanning ? (
-          <button onClick={stop} className="btn-ghost px-5 py-2.5 text-sm">Остановить камеру</button>
+          <div className="flex items-center gap-2">
+            {canTorch && (
+              <button onClick={toggleTorch} className={`btn-ghost px-4 py-2.5 text-sm ${torchOn ? 'ring-1 ring-gold' : ''}`}>
+                {torchOn ? 'Фонарик вкл' : 'Фонарик'}
+              </button>
+            )}
+            <button onClick={stop} className="btn-ghost px-5 py-2.5 text-sm">Остановить камеру</button>
+          </div>
         ) : (
           <button onClick={start} className="btn-gold px-5 py-2.5 text-sm">Включить сканер</button>
         )}
@@ -140,12 +200,12 @@ export default function ScanPage() {
             className={`overflow-hidden rounded-2xl border-2 bg-black ${flash === 'ok' ? 'border-gold/60' : 'border-red-500/70'} ${busy ? 'opacity-60' : ''}`}
           >
             <div className="relative">
-              <video ref={videoRef} className="scanner-video" muted playsInline />
+              <video ref={videoRef} className="scanner-video" muted playsInline autoPlay />
               {!scanning && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 text-center">
                   <div className="font-display text-lg tracking-widest text-gold uppercase">Сканер готов</div>
                   <p className="mt-2 max-w-xs px-4 text-sm text-sub">
-                    Нажмите «Включить сканер» и разрешите доступ к камере
+                    Нажмите «Включить сканер» и наведите камеру на штрихкод — сработает автоматически
                   </p>
                 </div>
               )}
@@ -153,8 +213,11 @@ export default function ScanPage() {
                 <div className="absolute inset-x-0 top-0 bg-red-500/90 p-3 text-center text-sm">{cameraError}</div>
               )}
               {scanning && (
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2">
                   <div className="h-40 w-[85%] rounded-lg border-2 border-gold/70" />
+                  <span className="rounded bg-black/60 px-3 py-1 font-display text-xs tracking-widest text-gold uppercase">
+                    {busy ? 'Проверяем…' : 'Ищу штрихкод…'}
+                  </span>
                 </div>
               )}
             </div>
