@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import useSWR from 'swr';
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser';
 import { BarcodeFormat, DecodeHintType } from '@zxing/library';
-import { postJSON } from '@/lib/api';
+import { fetcher, postJSON } from '@/lib/api';
+
+type MembershipType = { id: number; name: string; sessions: number; price: number; durationDays: number };
 
 type Scanned = {
   membership: {
@@ -11,6 +14,7 @@ type Scanned = {
     code: string;
     holderName: string;
     phone: string;
+    typeName?: string | null;
     totalSessions: number;
     usedSessions: number;
     remaining: number;
@@ -43,6 +47,15 @@ export default function ScanPage() {
   const busyRef = useRef(false);
   const [canTorch, setCanTorch] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+
+  const resultRef = useRef<HTMLDivElement>(null);
+  const { data: membershipTypes } = useSWR<MembershipType[]>('/api/membership-types', fetcher);
+  const [renewOpen, setRenewOpen] = useState(false);
+  const [renewTypeId, setRenewTypeId] = useState('');
+  const [renewErr, setRenewErr] = useState<string | null>(null);
+
+  const m = result?.membership;
+  const renewOptions = (membershipTypes ?? []).filter((t) => !m?.typeName || t.name === m.typeName);
 
   const start = async () => {
     setCameraError(null);
@@ -136,6 +149,8 @@ export default function ScanPage() {
       setResult(res);
       setFlash('ok');
       setTimeout(() => setFlash('ok'), 600);
+      if (controlsRef.current) stop();
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
     } catch (e: any) {
       setResult(null);
       setLookupError(e.message || 'Абонемент не найден');
@@ -169,9 +184,25 @@ export default function ScanPage() {
     setManualCode(CODE_PREFIX);
   };
 
-  useEffect(() => () => controlsRef.current?.stop(), []);
+  const renew = async () => {
+    if (!m) return;
+    if (!renewTypeId) { setRenewErr('Выберите вид абонемента'); return; }
+    setBusy(true);
+    setRenewErr(null);
+    try {
+      const updated = await postJSON<any>(`/api/memberships/${m.id}/renew`, { membershipTypeId: renewTypeId });
+      setResult({ membership: { ...m, ...updated } });
+      setRenewOpen(false);
+      setRenewTypeId('');
+      setUsedNote('Абонемент продлён');
+    } catch (e: any) {
+      setRenewErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const m = result?.membership;
+  useEffect(() => () => controlsRef.current?.stop(), []);
 
   return (
     <div className="space-y-8">
@@ -237,13 +268,14 @@ export default function ScanPage() {
           {lookupError && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{lookupError}</p>}
         </div>
 
-        <div>
+        <div ref={resultRef}>
           {m ? (
             <div className="card-dark rounded-2xl border-2 border-gold/50 p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-display text-xl tracking-widest uppercase">{m.holderName}</div>
                   <div className="text-sm text-sub">{m.phone}</div>
+                  {m.typeName && <div className="text-xs text-gold-light">{m.typeName}</div>}
                 </div>
                 <span className={`rounded px-3 py-1 font-display text-sm ${m.remaining > 0 ? 'bg-gold/15 text-gold' : 'bg-red-500/15 text-red-300'}`}>
                   {m.status === 'ACTIVE' ? 'Активен' : m.status === 'USED_UP' ? 'Использован' : 'Просрочен'}
@@ -277,6 +309,15 @@ export default function ScanPage() {
                   Занятия на этом абонементе закончились
                 </div>
               )}
+
+              <button
+                onClick={() => { setRenewOpen(true); setRenewErr(null); }}
+                disabled={busy}
+                className="btn-ghost mt-3 w-full px-6 py-3 text-sm"
+              >
+                Продлить абонемент
+              </button>
+
               {usedNote && <p className="mt-3 text-center text-sm text-green-400">{usedNote}</p>}
             </div>
           ) : (
@@ -287,6 +328,41 @@ export default function ScanPage() {
           )}
         </div>
       </div>
+
+      {renewOpen && m && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" onClick={() => setRenewOpen(false)}>
+          <div className="card-dark max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-lg tracking-widest uppercase text-gold">Продлить абонемент</h3>
+            <p className="mt-1 text-sm text-sub">{m.holderName} · {m.code}</p>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="label-dark">Вид занятия (не меняется)</label>
+                <div className="input-dark opacity-70">{m.typeName || '—'}</div>
+              </div>
+              <div>
+                <label className="label-dark">Вид абонемента</label>
+                <select className="input-dark" value={renewTypeId} onChange={(e) => setRenewTypeId(e.target.value)}>
+                  <option value="">— выберите —</option>
+                  {renewOptions.map((t) => (
+                    <option key={t.id} value={String(t.id)}>{t.sessions} занятий · {t.price} BYN · {t.durationDays} дней</option>
+                  ))}
+                </select>
+                {renewOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-red-400">Нет видов абонементов для этого занятия. Добавьте их в Настройках.</p>
+                )}
+              </div>
+              <div className="rounded-lg border border-white/5 bg-black/30 p-3 text-xs text-sub">
+                Добавятся выбранные занятия и продлится срок действия. Код и штрихкод не меняются.
+              </div>
+              {renewErr && <p className="text-sm text-red-400">{renewErr}</p>}
+              <div className="flex gap-3">
+                <button onClick={renew} disabled={busy} className="btn-gold flex-1 px-5 py-3 text-sm">{busy ? 'Продлеваем...' : 'Продлить'}</button>
+                <button onClick={() => setRenewOpen(false)} className="btn-ghost px-4 py-3 text-sm">Отмена</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
