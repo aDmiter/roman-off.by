@@ -40,6 +40,12 @@ export default function SettingsPage() {
   const [editingMtId, setEditingMtId] = useState<number | null>(null);
   const [mtMsg, setMtMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
+  const { data: analyticsData } = useSWR<{ yandexId: string; googleId: string }>('/api/analytics', fetcher);
+  const [yandexId, setYandexId] = useState('');
+  const [googleId, setGoogleId] = useState('');
+  const [anMsg, setAnMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [savingAn, setSavingAn] = useState(false);
+
   const submitMt = async () => {
     setMtMsg(null);
     if (mt.name.trim().length < 2) { setMtMsg({ type: 'err', text: 'Выберите занятие' }); return; }
@@ -64,6 +70,26 @@ export default function SettingsPage() {
     if (!confirm('Удалить вид абонемента?')) return;
     await del(`/api/membership-types/${id}`);
     mutate('/api/membership-types');
+  };
+
+  useEffect(() => {
+    if (!analyticsData) return;
+    setYandexId(analyticsData.yandexId || '');
+    setGoogleId(analyticsData.googleId || '');
+  }, [analyticsData]);
+
+  const saveAnalytics = async () => {
+    setSavingAn(true);
+    setAnMsg(null);
+    try {
+      await putJSON('/api/analytics', { yandexId, googleId });
+      mutate('/api/analytics');
+      setAnMsg({ type: 'ok', text: 'Сохранено' });
+    } catch (e: any) {
+      setAnMsg({ type: 'err', text: e.message });
+    } finally {
+      setSavingAn(false);
+    }
   };
 
   useEffect(() => {
@@ -305,6 +331,31 @@ export default function SettingsPage() {
             {savingHours ? 'Сохраняем...' : 'Сохранить'}
           </button>
           {hoursMsg && <span className={`text-sm ${hoursMsg.type === 'ok' ? 'text-green-400' : 'text-red-400'}`}>{hoursMsg.text}</span>}
+        </div>
+      </div>
+
+      <div className="card-dark rounded-2xl p-6">
+        <div className="mb-6 border-b border-white/5 pb-4">
+          <h2 className="font-display text-base tracking-widest uppercase text-gold">Счётчики</h2>
+          <p className="mt-1 text-xs text-sub">
+            Яндекс.Метрика и Google Analytics. Укажите только ID — код подключается автоматически. Пустое поле = счётчик не загружается.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label-dark">ID Яндекс.Метрики (номер счётчика)</label>
+            <input className="input-dark" placeholder="12345678" inputMode="numeric" value={yandexId} onChange={(e) => setYandexId(e.target.value)} />
+          </div>
+          <div>
+            <label className="label-dark">ID Google Analytics</label>
+            <input className="input-dark" placeholder="G-XXXXXXXXXX" value={googleId} onChange={(e) => setGoogleId(e.target.value)} />
+          </div>
+        </div>
+        <div className="mt-5 flex items-center gap-4">
+          <button onClick={saveAnalytics} disabled={savingAn} className="btn-gold px-6 py-3 text-sm">
+            {savingAn ? 'Сохраняем...' : 'Сохранить'}
+          </button>
+          {anMsg && <span className={`text-sm ${anMsg.type === 'ok' ? 'text-green-400' : 'text-red-400'}`}>{anMsg.text}</span>}
         </div>
       </div>
     </div>

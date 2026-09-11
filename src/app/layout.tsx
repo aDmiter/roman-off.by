@@ -1,5 +1,8 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import './globals.css';
+import Analytics from '@/components/Analytics';
+import { prisma } from '@/lib/prisma';
 import { SITE_DESCRIPTION, SITE_TITLE } from '@/lib/constants';
 
 export const metadata: Metadata = {
@@ -27,7 +30,11 @@ export const viewport: Viewport = {
   initialScale: 1
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const pathname = headers().get('x-pathname') || '';
+  const analytics = await prisma.analyticsSetting.findFirst().catch(() => null);
+  const showAnalytics = !pathname.startsWith('/admin');
+
   return (
     <html lang="ru">
       <head>
@@ -38,7 +45,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {showAnalytics && <Analytics yandexId={analytics?.yandexId} googleId={analytics?.googleId} />}
+      </body>
     </html>
   );
 }
