@@ -17,11 +17,14 @@ type Membership = {
 };
 type BookingLite = { id: number; name: string; phone: string; goal?: string; createdAt: string };
 type Session = { id: number; date: string; startTime: string; title: string; busy: boolean; bookedCount: number; capacity: number };
+type Me = { permissions: string[] };
 
 export default function AdminDashboard() {
   const { data: memberships } = useSWR<Membership[]>('/api/memberships', fetcher);
   const { data: bookings } = useSWR<BookingLite[]>('/api/bookings', fetcher);
   const { data: sessions } = useSWR<Session[]>('/api/sessions?from=1980-01-01&to=2100-01-01', fetcher);
+  const { data: me } = useSWR<Me>('/api/admin/me', fetcher);
+  const perms = me?.permissions ?? [];
 
   const active = memberships?.filter((m) => m.status === 'ACTIVE' && m.remaining > 0) ?? [];
   const today = toDateKey(new Date());
@@ -41,13 +44,22 @@ export default function AdminDashboard() {
           <h1 className="font-display text-2xl font-bold tracking-widest uppercase">Обзор</h1>
           <p className="mt-1 text-sm text-sub">Управление клубом ROMANOFF FIGHT CLUB</p>
         </div>
-        <div className="flex gap-3">
-          <Link href="/admin/scan" className="btn-gold px-5 py-2.5 text-sm">
-            Сканировать абонемент
-          </Link>
-          <Link href="/admin/memberships" className="btn-ghost px-5 py-2.5 text-sm">
-            + Абонемент
-          </Link>
+        <div className="flex flex-wrap gap-3">
+          {perms.includes('scan') && (
+            <Link href="/admin/scan" className="btn-gold px-5 py-2.5 text-sm">
+              Сканировать абонемент
+            </Link>
+          )}
+          {perms.includes('calendar') && (
+            <Link href="/admin/calendar?new=1" className="btn-ghost px-5 py-2.5 text-sm">
+              + Запись
+            </Link>
+          )}
+          {perms.includes('memberships') && (
+            <Link href="/admin/memberships" className="btn-ghost px-5 py-2.5 text-sm">
+              + Абонемент
+            </Link>
+          )}
         </div>
       </div>
 

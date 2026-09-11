@@ -9,7 +9,7 @@ import ruLocale from '@fullcalendar/core/locales/ru';
 import type { EventClickArg, EventInput } from '@fullcalendar/core';
 import type { DateClickArg } from '@fullcalendar/interaction';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useSWR from 'swr';
 import { mutate } from 'swr';
 import { fetcher, postJSON, patchJSON, del } from '@/lib/api';
@@ -43,6 +43,14 @@ export default function CalendarPage() {
   const [filterCoach, setFilterCoach] = useState<number | 'all'>('all');
   const [modal, setModal] = useState<Modal | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('new') === '1') {
+      setModal({ mode: 'create' });
+      window.history.replaceState(null, '', '/admin/calendar');
+    }
+  }, []);
 
   const visibleSessions = (sessions ?? []).filter((s) => filterCoach === 'all' || s.coachId === filterCoach);
 
