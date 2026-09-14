@@ -317,29 +317,35 @@ function ClientDrawer({ client, coaches, sessions, edit, setEdit, onClose, onCha
   return (
     <div className="fixed inset-0 z-[70] bg-black/60" onClick={onClose}>
       <div className="absolute right-0 top-0 flex h-full w-full max-w-2xl flex-col bg-[#0d0d0d] shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between gap-4 border-b border-white/5 p-5">
-          <div className="flex items-center gap-4">
-            <Avatar c={client} size="h-16 w-16" />
-            <div>
+        <div className="flex items-start justify-between gap-3 border-b border-white/5 p-4">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <Avatar c={client} size="h-14 w-14" />
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-display text-xl font-bold tracking-widest uppercase">{client.name}</span>
+                <span className="truncate font-display text-lg font-bold tracking-widest uppercase">{client.name}</span>
                 {!client.verified && (
-                  <span className="rounded bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-widest text-amber-300">
+                  <span className="shrink-0 rounded bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-widest text-amber-300">
                     Непроверено
                   </span>
                 )}
               </div>
-              <div className="text-sm text-sub">{client.phone}{client.email ? ` · ${client.email}` : ''}</div>
-              <div className="text-sm mt-1"><Age birthDate={client.birthDate} /></div>
+              <div className="truncate text-sm text-sub">{client.phone}{client.email ? ` · ${client.email}` : ''}</div>
+              <div className="text-sm mt-0.5"><Age birthDate={client.birthDate} /></div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            {!client.verified && (
-              <button onClick={markVerified} className="btn-gold px-4 py-1.5 text-xs">Отметить проверенным</button>
-            )}
-            <button onClick={() => setEdit(true)} className="btn-ghost px-4 py-1.5 text-xs">Редактировать</button>
-            <button onClick={onClose} className="text-sub hover:text-gold">✕</button>
-          </div>
+          <button
+            onClick={onClose}
+            aria-label="Закрыть"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 text-lg text-sub transition-colors hover:border-gold hover:text-gold"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-b border-white/5 px-4 py-2">
+          {!client.verified && (
+            <button onClick={markVerified} className="btn-gold px-3 py-1.5 text-xs">Отметить проверенным</button>
+          )}
+          <button onClick={() => setEdit(true)} className="btn-ghost px-3 py-1.5 text-xs">Редактировать</button>
         </div>
 
         <div className="grid grid-cols-2 gap-3 border-b border-white/5 p-5 sm:grid-cols-4">

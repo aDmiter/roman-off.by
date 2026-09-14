@@ -39,9 +39,16 @@ export async function GET() {
 
   const memberships = await prisma.membership.findMany({
     orderBy: { createdAt: 'desc' },
-    take: 200
+    take: 200,
+    include: { usages: { orderBy: { usedAt: 'desc' } } }
   });
-  const view = await Promise.all(memberships.map(async (m) => ({ ...toView(m), barcode: await barcodePngDataUrl(m.code) })));
+  const view = await Promise.all(
+    memberships.map(async (m) => ({
+      ...toView(m),
+      usages: m.usages.map((u) => u.usedAt),
+      barcode: await barcodePngDataUrl(m.code)
+    }))
+  );
   return NextResponse.json(view);
 }
 

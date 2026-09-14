@@ -26,12 +26,14 @@ type Membership = {
   phone: string;
   typeName?: string | null;
   price?: number | null;
+  membershipTypeId?: number | null;
   totalSessions: number;
   usedSessions: number;
   remaining: number;
   status: string;
   createdAt: string;
   expiresAt?: string | null;
+  usages?: string[];
   barcode: string;
 };
 
@@ -45,6 +47,10 @@ export default function MembershipsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
+  const [renewFor, setRenewFor] = useState<Membership | null>(null);
+  const [renewTypeId, setRenewTypeId] = useState('');
+  const [renewErr, setRenewErr] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const [query, setQuery] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -160,12 +166,51 @@ export default function MembershipsPage() {
     setTimeout(() => setShareMsg(null), 5000);
   };
 
+  const useSession = async (m: Membership) => {
+    if (!confirm(`Списать одно занятие с абонемента «${m.holderName}»?`)) return;
+    setActionBusy(true);
+    try {
+      await postJSON(`/api/memberships/${m.id}/use`, {});
+      mutate('/api/memberships');
+      setShareMsg(`Списано занятие · ${m.holderName}`);
+    } catch (e: any) {
+      setShareMsg(e.message);
+    } finally {
+      setActionBusy(false);
+      setTimeout(() => setShareMsg(null), 5000);
+    }
+  };
+
+  const renewOptions = (membershipTypes ?? []).filter((t) => !renewFor?.typeName || t.name === renewFor.typeName);
+
+  const doRenew = async () => {
+    if (!renewFor) return;
+    if (!renewTypeId) { setRenewErr('Выберите вид абонемента'); return; }
+    setActionBusy(true);
+    setRenewErr(null);
+    try {
+      await postJSON(`/api/memberships/${renewFor.id}/renew`, { membershipTypeId: renewTypeId });
+      mutate('/api/memberships');
+      setRenewFor(null);
+      setRenewTypeId('');
+      setShareMsg('Абонемент продлён');
+      setTimeout(() => setShareMsg(null), 5000);
+    } catch (e: any) {
+      setRenewErr(e.message);
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const c = newCard;
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-widest uppercase">Абонементы</h1>
-        <p className="mt-1 text-sm text-sub">Генерация абонементов со штрихкодом (4 занятия)</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-widest uppercase">Абонементы</h1>
+          <p className="mt-1 text-sm text-sub">Создание, списание, продление и печать абонементов</p>
+        </div>
+        <a href="/admin/scan" className="btn-ghost px-4 py-2 text-sm">Сканировать абонемент</a>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -311,9 +356,32 @@ export default function MembershipsPage() {
                     <span className="font-display text-3xl font-bold gold-text">{m.remaining}</span>
                     <span className="mb-1 text-xs text-sub">занятий осталось</span>
                   </div>
+                  <div className="mt-2 space-y-1 text-[11px] text-sub">
+                    {m.expiresAt && <div>Действует до {new Date(m.expiresAt).toLocaleDateString('ru-RU')}</div>}
+                    {m.usages && m.usages.length > 0 && (
+                      <div>
+                        Списания: {m.usages.slice(0, 6).map((u) => new Date(u).toLocaleDateString('ru-RU')).join(', ')}
+                        {m.usages.length > 6 ? ` +${m.usages.length - 6}` : ''}
+                      </div>
+                    )}
+                  </div>
                   <img src={m.barcode} alt="Barcode" className="mt-3 w-full rounded bg-white p-1" />
                   <div className="mt-2 break-all font-mono text-[11px] text-sub">{m.code}</div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {m.remaining > 0 && m.status === 'ACTIVE' && (
+                      <button onClick={() => useSession(m)} disabled={actionBusy} className="btn-gold flex-1 px-3 py-2 text-xs">
+                        Списать занятие
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setRenewFor(m); setRenewTypeId(''); setRenewErr(null); }}
+                      disabled={actionBusy}
+                      className="btn-ghost flex-1 px-3 py-2 text-xs"
+                    >
+                      Продлить
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     <button onClick={() => printCard(m)} className="btn-ghost flex-1 px-3 py-2 text-xs">Печать</button>
                     <button onClick={() => shareLink(m)} className="btn-ghost flex-1 px-3 py-2 text-xs">Отправить ссылку</button>
                     <button onClick={() => remove(m.id)} className="px-3 py-2 text-xs text-red-400 hover:underline">Удалить</button>
@@ -324,6 +392,43 @@ export default function MembershipsPage() {
           </div>
         </div>
       </div>
+
+      {renewFor && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" onClick={() => setRenewFor(null)}>
+          <div className="card-dark max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-lg tracking-widest uppercase text-gold">Продлить абонемент</h3>
+            <p className="mt-1 text-sm text-sub">{renewFor.holderName} · {renewFor.code}</p>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="label-dark">Вид занятия (не меняется)</label>
+                <div className="input-dark opacity-70">{renewFor.typeName || '—'}</div>
+              </div>
+              <div>
+                <label className="label-dark">Вид абонемента</label>
+                <select className="input-dark" value={renewTypeId} onChange={(e) => setRenewTypeId(e.target.value)}>
+                  <option value="">— выберите —</option>
+                  {renewOptions.map((t) => (
+                    <option key={t.id} value={String(t.id)}>{t.sessions} занятий · {t.price} BYN · {t.durationDays} дней</option>
+                  ))}
+                </select>
+                {renewOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-red-400">Нет видов абонементов для этого занятия. Добавьте их в Настройках.</p>
+                )}
+              </div>
+              <div className="rounded-lg border border-white/5 bg-black/30 p-3 text-xs text-sub">
+                Добавятся выбранные занятия и продлится срок действия. Код и штрихкод не меняются.
+              </div>
+              {renewErr && <p className="text-sm text-red-400">{renewErr}</p>}
+              <div className="flex gap-3">
+                <button onClick={doRenew} disabled={actionBusy} className="btn-gold flex-1 px-5 py-3 text-sm">
+                  {actionBusy ? 'Продлеваем...' : 'Продлить'}
+                </button>
+                <button onClick={() => setRenewFor(null)} className="btn-ghost px-4 py-3 text-sm">Отмена</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {shareMsg && (
         <p className="fixed bottom-4 right-4 z-[90] max-w-xs break-all rounded-lg border border-gold/40 bg-black px-4 py-2 text-sm text-gold-light">
