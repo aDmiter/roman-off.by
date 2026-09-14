@@ -165,6 +165,7 @@ model MembershipUsage {
   membershipId Int
   usedAt       DateTime   @default(now())
   sessionId    Int?
+  visitId      Int? // связанный визит клиента (для корректного удаления списания)
   note         String?
 }
 

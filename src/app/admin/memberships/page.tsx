@@ -33,7 +33,7 @@ type Membership = {
   status: string;
   createdAt: string;
   expiresAt?: string | null;
-  usages?: string[];
+  usages?: { id: number; usedAt: string }[];
   barcode: string;
 };
 
@@ -173,6 +173,21 @@ export default function MembershipsPage() {
       await postJSON(`/api/memberships/${m.id}/use`, {});
       mutate('/api/memberships');
       setShareMsg(`Списано занятие · ${m.holderName}`);
+    } catch (e: any) {
+      setShareMsg(e.message);
+    } finally {
+      setActionBusy(false);
+      setTimeout(() => setShareMsg(null), 5000);
+    }
+  };
+
+  const removeUsage = async (m: Membership, usageId: number) => {
+    if (!confirm('Удалить это списание? Занятие вернётся на абонемент.')) return;
+    setActionBusy(true);
+    try {
+      await del(`/api/memberships/${m.id}/usages/${usageId}`);
+      mutate('/api/memberships');
+      setShareMsg('Списание удалено');
     } catch (e: any) {
       setShareMsg(e.message);
     } finally {
@@ -359,9 +374,26 @@ export default function MembershipsPage() {
                   <div className="mt-2 space-y-1 text-[11px] text-sub">
                     {m.expiresAt && <div>Действует до {new Date(m.expiresAt).toLocaleDateString('ru-RU')}</div>}
                     {m.usages && m.usages.length > 0 && (
-                      <div>
-                        Списания: {m.usages.slice(0, 6).map((u) => new Date(u).toLocaleDateString('ru-RU')).join(', ')}
-                        {m.usages.length > 6 ? ` +${m.usages.length - 6}` : ''}
+                      <div className="space-y-1">
+                        <div>Списания:</div>
+                        <div className="flex flex-wrap gap-1">
+                          {m.usages.map((u) => (
+                            <span
+                              key={u.id}
+                              className="inline-flex items-center gap-1 rounded border border-white/10 bg-black/30 px-2 py-0.5 text-[11px] text-sub"
+                            >
+                              {new Date(u.usedAt).toLocaleDateString('ru-RU')}
+                              <button
+                                onClick={() => removeUsage(m, u.id)}
+                                disabled={actionBusy}
+                                title="Удалить списание"
+                                className="text-red-400 hover:text-red-300"
+                              >
+                                ✕
+                              </button>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

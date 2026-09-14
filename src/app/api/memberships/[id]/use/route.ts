@@ -32,24 +32,29 @@ export async function POST(req: Request, { params }: Params) {
     }
   });
 
+  let visitId: number | null = null;
+  if (membership.clientId) {
+    const visit = await prisma.visit
+      .create({
+        data: {
+          clientId: membership.clientId,
+          sessionId: body?.sessionId ?? null,
+          coachId: body?.coachId ?? null,
+          visitedAt: new Date()
+        }
+      })
+      .catch(() => null);
+    visitId = visit?.id ?? null;
+  }
+
   await prisma.membershipUsage.create({
     data: {
       membershipId: id,
       sessionId: body?.sessionId ?? null,
+      visitId,
       note: body?.note ?? null
     }
   });
-
-  if (membership.clientId) {
-    await prisma.visit.create({
-      data: {
-        clientId: membership.clientId,
-        sessionId: body?.sessionId ?? null,
-        coachId: body?.coachId ?? null,
-        visitedAt: new Date()
-      }
-    }).catch(() => {});
-  }
 
   return NextResponse.json({
     ok: true,

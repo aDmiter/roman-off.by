@@ -45,7 +45,7 @@ export async function GET() {
   const view = await Promise.all(
     memberships.map(async (m) => ({
       ...toView(m),
-      usages: m.usages.map((u) => u.usedAt),
+      usages: m.usages.map((u) => ({ id: u.id, usedAt: u.usedAt })),
       barcode: await barcodePngDataUrl(m.code)
     }))
   );
