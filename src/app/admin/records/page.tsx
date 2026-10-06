@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import useSWR from 'swr';
-import { fetcher } from '@/lib/api';
+import { fetcher, del } from '@/lib/api';
 
-type Record = {
+type UsageRecord = {
   id: number;
   usedAt: string;
   note?: string | null;
@@ -18,7 +18,28 @@ type Record = {
 
 export default function RecordsPage() {
   const [q, setQ] = useState('');
-  const { data, isLoading, error } = useSWR<Record[]>(`/api/records?q=${encodeURIComponent(q.trim())}`, fetcher);
+  const { data, isLoading, error, mutate } = useSWR<UsageRecord[]>(`/api/records?q=${encodeURIComponent(q.trim())}`, fetcher);
+  const [deleting, setDeleting] = useState<number | null>(null);
+
+  const remove = async (r: UsageRecord) => {
+    const d = new Date(r.usedAt);
+    const when = `${d.toLocaleDateString('ru-RU')} ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+    const ok = confirm(
+      `ВНИМАНИЕ! Удалить запись?\n\n${r.holderName} · ${r.code}\nСписание от ${when}\n\n` +
+        'Занятие будет возвращено на абонемент, связанный визит клиента тоже удалится.\n' +
+        'Это действие НЕВОЗВРАТНО — восстановить запись будет нельзя.\n\nВы уверены?'
+    );
+    if (!ok) return;
+    setDeleting(r.id);
+    try {
+      await del(`/api/memberships/${r.membershipId}/usages/${r.id}`);
+      await mutate();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -50,6 +71,7 @@ export default function RecordsPage() {
                 <th className="px-4 py-3">Телефон</th>
                 <th className="px-4 py-3">Абонемент</th>
                 <th className="px-4 py-3">Код</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -64,6 +86,15 @@ export default function RecordsPage() {
                     <td className="whitespace-nowrap px-4 py-3 text-sub">{r.phone}</td>
                     <td className="px-4 py-3 text-sub">{r.typeName || `${r.totalSessions} занятий`}</td>
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-sub">{r.code}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      <button
+                        onClick={() => remove(r)}
+                        disabled={deleting === r.id}
+                        className="text-sm text-red-400 hover:underline disabled:opacity-50"
+                      >
+                        {deleting === r.id ? 'Удаление…' : 'Удалить запись'}
+                      </button>
+                    </td>
                   </tr>
                 );
               })}

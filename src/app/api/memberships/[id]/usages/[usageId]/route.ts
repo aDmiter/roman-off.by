@@ -5,7 +5,7 @@ import { requireAnyPermission } from '@/lib/permissions';
 type Params = { params: { id: string; usageId: string } };
 
 export async function DELETE(_req: Request, { params }: Params) {
-  const auth = await requireAnyPermission(['scan', 'memberships']);
+  const auth = await requireAnyPermission(['scan', 'memberships', 'records']);
   if ('response' in auth) return auth.response;
 
   const membershipId = Number(params.id);
