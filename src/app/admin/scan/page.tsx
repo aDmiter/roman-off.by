@@ -23,21 +23,27 @@ type Scanned = {
   };
 };
 
-const CODE_PREFIX = 'RFC-';
-
-// Маска ручного ввода: всегда префикс RFC- и до 10 цифр.
-function maskCode(raw: string): string {
-  const upper = raw.toUpperCase();
-  const body = upper.replace(/^RFC-?/, '').replace(/\D/g, '').slice(0, 10);
-  return CODE_PREFIX + body;
-}
+type SearchItem = {
+  id: number;
+  code: string;
+  holderName: string;
+  phone: string;
+  typeName?: string | null;
+  clientName?: string | null;
+  totalSessions: number;
+  usedSessions: number;
+  remaining: number;
+  status: string;
+};
 
 export default function ScanPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<IScannerControls | null>(null);
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [manualCode, setManualCode] = useState('RFC-');
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchItem[]>([]);
+  const [searchErr, setSearchErr] = useState<string | null>(null);
   const [result, setResult] = useState<Scanned | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -177,11 +183,42 @@ export default function ScanPage() {
     }
   };
 
-  const onSubmitManual = (e: React.FormEvent) => {
+  const onSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (manualCode.length <= CODE_PREFIX.length) return;
-    handleCode(manualCode);
-    setManualCode(CODE_PREFIX);
+    const q = query.trim();
+    setSearchErr(null);
+    setResults([]);
+    if (q.length < 2) {
+      setSearchErr('Введите минимум 2 символа');
+      return;
+    }
+
+    const codeLike = q.replace(/\s+/g, '');
+    if (/^RFC-\d+$/i.test(codeLike)) {
+      setQuery('');
+      await handleCode(codeLike.toUpperCase());
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const res = await fetcher<{ results: SearchItem[] }>(`/api/memberships/search?q=${encodeURIComponent(q)}`);
+      if (res.results.length === 0) {
+        setSearchErr('Ничего не найдено');
+      } else {
+        setResults(res.results);
+      }
+    } catch (err: any) {
+      setSearchErr(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openResult = async (code: string) => {
+    setResults([]);
+    setQuery('');
+    await handleCode(code);
   };
 
   const renew = async () => {
@@ -254,17 +291,50 @@ export default function ScanPage() {
             </div>
           </div>
 
-          <form onSubmit={onSubmitManual} className="card-dark flex items-center gap-3 rounded-2xl p-4">
+          <form onSubmit={onSearch} className="card-dark flex items-center gap-3 rounded-2xl p-4">
             <input
-              value={manualCode}
-              onChange={(e) => setManualCode(maskCode(e.target.value))}
-              placeholder="RFC-0000000000"
-              inputMode="numeric"
-              className="input-dark flex-1 font-mono tracking-widest"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Имя, фамилия, телефон, email или код…"
+              className="input-dark flex-1"
             />
-            <button type="submit" className="btn-ghost px-5 py-2.5 text-sm">Найти</button>
+            <button type="submit" disabled={busy} className="btn-ghost px-5 py-2.5 text-sm">Найти</button>
           </form>
-          <p className="text-xs text-sub">Формат абонемента: RFC- и 10 цифр. Можно вводить цифры вручную или сканировать USB-сканером.</p>
+          <p className="text-xs text-sub">
+            Поиск по любой части имени, фамилии, телефона, email и вида абонемента. Полный код (штрихкод) открывает один абонемент. Работает USB-сканер.
+          </p>
+          {searchErr && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{searchErr}</p>}
+          {results.length > 0 && (
+            <div className="card-dark rounded-2xl p-4">
+              <div className="mb-3 font-display text-xs tracking-widest uppercase text-gold">Найдено: {results.length}</div>
+              <div className="space-y-2">
+                {results.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => openResult(r.code)}
+                    className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-left transition-colors hover:border-gold/60"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-display tracking-widest uppercase text-main">{r.holderName}</div>
+                      <div className="truncate text-xs text-sub">
+                        {r.phone}
+                        {r.typeName ? ` · ${r.typeName}` : ''}
+                      </div>
+                      <div className="truncate text-[10px] text-sub">
+                        {r.status === 'ACTIVE' ? 'Активен' : r.status === 'USED_UP' ? 'Использован' : 'Просрочен'}
+                        {r.clientName && r.clientName !== r.holderName ? ` · ${r.clientName}` : ''}
+                      </div>
+                      <div className="font-mono text-[11px] text-sub">{r.code}</div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className="font-display text-lg gold-text">{r.remaining}</div>
+                      <div className="text-[10px] text-sub">осталось</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {lookupError && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{lookupError}</p>}
         </div>
 
