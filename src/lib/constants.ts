@@ -43,6 +43,7 @@ export const MEMBERSHIP_SESSIONS = [4, 8, 12];
 // Каталог разделов админки = единицы прав (RBAC).
 export const ADMIN_SECTIONS = [
   { key: 'dashboard', label: 'Обзор', href: '/admin', icon: '◈' },
+  { key: 'records', label: 'Записи', href: '/admin/records', icon: '✎' },
   { key: 'coaches', label: 'Тренеры', href: '/admin/coaches', icon: '◉' },
   { key: 'clients', label: 'Клиенты', href: '/admin/clients', icon: '▣' },
   { key: 'calendar', label: 'Календарь', href: '/admin/calendar', icon: '▦' },
